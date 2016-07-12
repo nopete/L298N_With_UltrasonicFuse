@@ -1,6 +1,9 @@
 const unsigned long MAX_DISTANCE = 15;
 const unsigned long MAX_DURATION = MAX_DISTANCE*1000*1000*2/100/340;
 
+#include <SoftwareSerial.h>// import the serial library
+
+
 //Pins 5 and 6: controlled by timer0 (8 bits)
 //Pins 9 and 10: controlled by timer1 (16 bits)
 //Pins 11 and 3: controlled by timer2 (8 bits)
@@ -8,18 +11,24 @@ const unsigned long MAX_DURATION = MAX_DISTANCE*1000*1000*2/100/340;
 //Define Pins
 
 //Motor A
-int enableA = 5;  // White
-int pinA1 = 4;    //Yellow
-int pinA2 = 2;    // Green
+int pinA1 = 2;    //Yellow
+int pinA2 = 3;    // Green
 
 //Motor B
-int enableB = 6;  // Gray
-int pinB1 = 7;    // Purple
-int pinB2 = 8;    // Blue
+int pinB1 = 4;    // Blue
+int pinB2 = 5;    // Purple->Orange
+
+
+// Bluetooth
+int pinTx = 7; // Yellow
+int pinRx = 8; // Green
+// int pinEn=9; // Brown
 
 //Ultrasonic sensor
-int pinEcho = 11; // Orange
-int pinTrig = 12; // Brown
+int pinEcho = 11; // White
+int pinTrig = 12; // Blue
+
+
 
 int pinLed=13;
 
@@ -28,105 +37,42 @@ int LOW_LIMIT=130;
 int STEP=15;
 
 
-void pwm_go(int val, bool A, bool B)
+void pwm_go(int A, int B)
 {
-  /*
-  if (A)
+  if (A>0)
   {
-    if (B)
-      Serial.print("BOTH ");
-     else
-      Serial.print("A ");
+      digitalWrite(pinA1, HIGH);  
+      digitalWrite(pinA2, LOW);    
+  }
+  else if (A<0)
+  {
+      digitalWrite(pinA2, HIGH);  
+      digitalWrite(pinA1, LOW);    
   }
   else
   {
-    if (B)
-      Serial.print("B ");
-     else
-     {
-      Serial.println("NONE");
-      return;
-     }
-  }
-  Serial.println(val);
-  */
-  if (val > 0)
-  {
-    if (A)
-    {
-      analogWrite(enableA, val);
-      digitalWrite(pinA1, HIGH);  
-      digitalWrite(pinA2, LOW);  
-    }
-    if (B)
-    {
-      analogWrite(enableB, val);
-      digitalWrite(pinB1, HIGH);  
-      digitalWrite(pinB2, LOW);      
-    }
-  }
-  else if (val < 0)
-  {
-    if (A)
-    {
-      analogWrite(enableA, -val);
       digitalWrite(pinA1, LOW);  
-      digitalWrite(pinA2, HIGH);  
-    }
-    if (B)
-    {
-      analogWrite(enableB, -val);      
-      digitalWrite(pinB1, LOW);  
-      digitalWrite(pinB2, HIGH);      
-    }
+      digitalWrite(pinA2, LOW);    
+  }
+  
+  if (B>0)
+  {
+      digitalWrite(pinB2, HIGH);  
+      digitalWrite(pinB1, LOW);    
+  }
+  else if (B<0)
+  {
+      digitalWrite(pinB1, HIGH);  
+      digitalWrite(pinB2, LOW);    
   }
   else
   {
-    if (A)
-    {
-      digitalWrite(pinA2, HIGH);  
-      digitalWrite(pinA1, HIGH);  
-    }
-    if (B)
-    {
-      digitalWrite(pinB2, HIGH);  
-      digitalWrite(pinB1, HIGH);
-    }
-  }
-
-}
-
-int rpm = 0;
-int last_inc = 0;
-
-void Test(bool A, bool B)
-{
-  for (int i=LOW_LIMIT; i <= HIGH_LIMIT; i += STEP)
-  {
-    pwm_go(i, A, B);
-    delay(1000);
-  }
-  
-  pwm_go(0, A, B);
-  delay(150);
-
-  for (int i=LOW_LIMIT; i <= HIGH_LIMIT; i += STEP)
-  {
-    pwm_go(-i, A, B);
-    delay(1000);
-  }
-  
-  pwm_go(0, A, B);
-  delay(150);
-  
-  for (int i=0; i < 2; ++i)
-  {
-    digitalWrite(pinLed,HIGH);
-    delay(500);
-    digitalWrite(pinLed,LOW);
-    delay(500);
+      digitalWrite(pinB1, LOW);  
+      digitalWrite(pinB2, LOW);    
   }
 }
+
+SoftwareSerial Genotronex(pinTx, pinRx);
 
 void setup()
 {
@@ -144,13 +90,8 @@ void setup()
   pinMode(pinTrig, OUTPUT);
   pinMode(pinEcho, INPUT);
 
-//  Test(true, false);
-//  Test(false, true);
-
-  Test(true, true);
-  
-  rpm = 0;
-  last_inc = 0;
+  Genotronex.begin(38400);
+  Genotronex.println("Bluetooth is Ready");
 
   Serial.println("Ready");
 
@@ -186,24 +127,132 @@ bool isTooClose()
 
 int speed = 0;
 
+void test()
+{
+  Serial.println("Left FWD");
+  pwm_go(1,0);
+  delay(2000);
+  Serial.println("Left STOP");
+  pwm_go(0,0);
+  delay(500);
+  Serial.println("Left REV");
+  pwm_go(-1,0);
+  delay(2000);
+  Serial.println("Left STOP");
+  pwm_go(0,0);
+  delay(500);
+  
+  Serial.println("Right FWD");
+  pwm_go(0,1);
+  delay(2000);
+  Serial.println("Right STOP");
+  pwm_go(0,0);
+  delay(500);
+  Serial.println("Right REV");
+  pwm_go(0, -1);
+  delay(2000);
+  Serial.println("Right STOP");
+  pwm_go(0,0);
+  delay(500);
+
+  Serial.println("Both FWD");
+  pwm_go(1,1);
+  delay(2000);
+  Serial.println("Both STOP");
+  pwm_go(0,0);
+  delay(500);
+  Serial.println("Both REV");
+  pwm_go(-1,-1);
+  delay(2000);
+  Serial.println("Both STOP");
+  pwm_go(0,0);
+  delay(500);
+  
+}
+
+bool obstacle = false;
+
 void loop()
 {
-  if (isTooClose())
-  {
-    digitalWrite(pinLed, HIGH);
-    if (speed > 0)
-    {
-      pwm_go(0, true, true);
-      speed = 0;
-    }
-  }
-  else
-  {
-    digitalWrite(pinLed, LOW);
-    if (speed == 0)
-    {
-      pwm_go(255, false, true);
-      speed = 255;
-    }
-  }
+   bool isClose = isTooClose();
+   
+   if ( (!obstacle) && isClose )
+   {
+      digitalWrite(pinLed, HIGH);
+      Genotronex.println("Obstacle! Emergency stop");
+      obstacle = true;
+   }
+
+   if ( (!isClose) && obstacle)
+   {
+      digitalWrite(pinLed, LOW);
+      Genotronex.println("Obstacle removed");
+      obstacle = false;    
+   }
+   
+   
+   if (Genotronex.available())
+   {
+      int BluetoothData=Genotronex.read();
+      Serial.print("Received");
+      Serial.println(BluetoothData, HEX);
+
+      switch (BluetoothData)
+      {
+        case 'F': case 'f':
+          if (obstacle)
+          {
+            Genotronex.println("Cant go forward, obstacle");
+            pwm_go(0,0);
+            break;
+          }
+          pwm_go(0,0);
+          delay(100);
+          pwm_go(1,1);
+          delay(400);
+          pwm_go(0,0);          
+          break;
+
+        case 'B': case 'b':
+          pwm_go(0,0);
+          delay(100);
+          pwm_go(-1,-1);
+          delay(400);
+          pwm_go(0,0);          
+          break;
+
+        case 'L': case 'l':
+          pwm_go(0,0);
+          delay(100);
+          pwm_go(-1,1);
+          delay(400);
+          pwm_go(0,0);          
+          break;
+
+        case 'R': case 'r':
+          pwm_go(0,0);
+          delay(100);
+          pwm_go(1,-1);
+          delay(400);
+          pwm_go(0,0);          
+          break;
+
+        case 'S': case 's':
+          pwm_go(0,0);
+          break;
+
+        default:
+          Serial.println("Unknown command");
+          break;
+      }
+     }
+
+     if (isTooClose())
+     {
+      pwm_go(0,0);
+      digitalWrite(pinLed, HIGH);
+      Genotronex.println("Obstacle! Emergency stop");
+     }
+      
+     delay(100);// prepare for next data ...
 }
