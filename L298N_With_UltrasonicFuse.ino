@@ -72,7 +72,7 @@ void pwm_go(int A, int B)
   }
 }
 
-SoftwareSerial Genotronex(pinTx, pinRx);
+SoftwareSerial BT(pinTx, pinRx);
 
 void setup()
 {
@@ -90,8 +90,8 @@ void setup()
   pinMode(pinTrig, OUTPUT);
   pinMode(pinEcho, INPUT);
 
-  Genotronex.begin(38400);
-  Genotronex.println("Bluetooth is Ready");
+  BT.begin(38400);
+  BT.println("Bluetooth is Ready");
 
   Serial.println("Ready");
 
@@ -179,21 +179,21 @@ void loop()
    if ( (!obstacle) && isClose )
    {
       digitalWrite(pinLed, HIGH);
-      Genotronex.println("Obstacle! Emergency stop");
+      BT.println("Obstacle! Emergency stop");
       obstacle = true;
    }
 
    if ( (!isClose) && obstacle)
    {
       digitalWrite(pinLed, LOW);
-      Genotronex.println("Obstacle removed");
+      BT.println("Obstacle removed");
       obstacle = false;    
    }
    
    
-   if (Genotronex.available())
+   if (BT.available())
    {
-      int BluetoothData=Genotronex.read();
+      int BluetoothData=BT.read();
       Serial.print("Received");
       Serial.println(BluetoothData, HEX);
 
@@ -202,7 +202,7 @@ void loop()
         case 'F': case 'f':
           if (obstacle)
           {
-            Genotronex.println("Cant go forward, obstacle");
+            BT.println("Cant go forward, obstacle");
             pwm_go(0,0);
             break;
           }
@@ -251,7 +251,7 @@ void loop()
      {
       pwm_go(0,0);
       digitalWrite(pinLed, HIGH);
-      Genotronex.println("Obstacle! Emergency stop");
+      BT.println("Obstacle! Emergency stop");
      }
       
      delay(100);// prepare for next data ...
